@@ -31,17 +31,27 @@ class MyTCPRequestHandler(socketserver.StreamRequestHandler, socketserver.Thread
             self.wfile.write(response)
 
     def post_request(self, recv_data):
+        print(recv_data)
         print("the protocol", recv_data["protocol"])
         if recv_data["path"] == b"/" or recv_data["path"] == b"/test.txt":
-            data_length = int(recv_data[b'Content-Length'].decode("utf-8"))
-            message = self.rfile.read(data_length)
-            print(message)
-            with open("test.txt", "w") as file:
-                file.write(message.decode("utf-8"))
-            response = b"200 OK\r\n"
-            self.wfile.write(response)
+            try:
+                data_length = int(recv_data[b'Content-Length'].decode("utf-8"))
+            except KeyError:
+                data_length = int(recv_data[b'content-length'].decode("utf-8"))
+            try:
+                message = self.rfile.read(data_length)
+                print("THIS IS THE MESSAGE: ", message)
+
+                with open("test.txt", "w") as file:
+                    file.write(message.decode("utf-8"))
+            finally:
+                response = b"%b 200 OK\r\n" % recv_data['protocol']
+                response += b"Content-Type: text/html\r\n"
+                response += b"\r\n"
+                response += b"<h1> the post has been created</h1>"
+                self.wfile.write(response)
         else:
-            response = b"404 error\r\n"
+            response = b"403 - Forbidden\r\n"
             self.wfile.write(response)
 
     def get_Request(self, recv_data):
@@ -61,7 +71,7 @@ class MyTCPRequestHandler(socketserver.StreamRequestHandler, socketserver.Thread
 
 
 if __name__ == "__main__":
-    HOST, PORT = "127.0.0.1", 9001
+    HOST, PORT = "127.0.0.1", 9000
     with socketserver.TCPServer((HOST, PORT), MyTCPRequestHandler) as server:
         try:
             thread = threading.Thread(target=server.serve_forever)
